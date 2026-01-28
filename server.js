@@ -27,8 +27,23 @@ app.get('/health', (req, res) => {
   });
 });
 
+// API Documentation
+app.get('/api', (req, res) => {
+  res.json({
+    message: 'Harvest Hub API',
+    endpoints: {
+      auth: '/api/auth',
+      gardens: '/api/gardens',
+      crops: '/api/crops',
+      health: '/health'
+    }
+  });
+});
+
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/gardens', gardenRoutes);
+app.use('/api/crops', cropRoutes);
 
 // Basic error handler
 app.use((err, req, res, next) => {
