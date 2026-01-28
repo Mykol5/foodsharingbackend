@@ -3,7 +3,10 @@ const cors = require('cors');
 require('dotenv').config();
 
 // Import routes
+// Import routes
 const authRoutes = require('./routes/auth');
+const gardenRoutes = require('./routes/gardens');
+const cropRoutes = require('./routes/crops');
 
 const app = express();
 
