@@ -131,32 +131,96 @@ router.post('/login', async (req, res) => {
 });
 
 // Get current user
+// Get current user
 router.get('/me', async (req, res) => {
   try {
-    // This would use the authenticateToken middleware in production
-    const token = req.headers['authorization']?.split(' ')[1];
+    // Get token from Authorization header
+    const authHeader = req.headers['authorization'];
     
-    if (!token) {
-      return res.status(401).json({ error: 'Token required' });
+    if (!authHeader) {
+      return res.status(401).json({ 
+        success: false,
+        error: 'Authorization header is required' 
+      });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // Check if it's a Bearer token
+    if (!authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ 
+        success: false,
+        error: 'Invalid authorization format. Use: Bearer <token>' 
+      });
+    }
+
+    const token = authHeader.split(' ')[1];
     
+    if (!token) {
+      return res.status(401).json({ 
+        success: false,
+        error: 'Token is required' 
+      });
+    }
+
+    console.log('🔍 Verifying token for /me endpoint');
+    
+    // Verify the token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log('✅ Token decoded:', { id: decoded.id, email: decoded.email });
+    
+    // Get user from database
     const { data: user, error } = await supabase
       .from('users')
       .select('id, email, name, phone, created_at, updated_at')
       .eq('id', decoded.id)
       .single();
 
-    if (error || !user) {
-      return res.status(404).json({ error: 'User not found' });
+    if (error) {
+      console.error('❌ Supabase error:', error);
+      return res.status(404).json({ 
+        success: false,
+        error: 'User not found in database' 
+      });
     }
 
-    res.status(200).json({ user });
+    if (!user) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'User not found' 
+      });
+    }
+
+    console.log('✅ User found:', user.email);
+    
+    res.status(200).json({ 
+      success: true,
+      user 
+    });
 
   } catch (error) {
-    console.error('Get user error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('💥 /me endpoint error:', error.name, error.message);
+    
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ 
+        success: false,
+        error: 'Invalid token',
+        details: error.message
+      });
+    }
+    
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ 
+        success: false,
+        error: 'Token expired',
+        details: 'Please login again'
+      });
+    }
+    
+    res.status(500).json({ 
+      success: false,
+      error: 'Internal server error',
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 
