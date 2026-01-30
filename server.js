@@ -13,7 +13,7 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:8080', 'https://mykol5.github.io/FoodGardenApp'], // Add your Flutter web URL
+  origin: ['http://localhost:3000', 'http://localhost:8080', 'https://mykol5.github.io/FoodGardenApp', 'https://mykol5.github.io'], // Add your Flutter web URL
   credentials: true
 }));
 app.use(express.json());
