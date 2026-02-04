@@ -78,12 +78,70 @@ router.post('/register', async (req, res) => {
 });
 
 // Login user
+// router.post('/login', async (req, res) => {
+//   try {
+//     const { email, password } = req.body;
+
+//     // Validate input
+//     if (!email || !password) {
+//       return res.status(400).json({ error: 'Email and password are required' });
+//     }
+
+//     // Get user from Supabase
+//     const { data: user, error } = await supabase
+//       .from('users')
+//       .select('*')
+//       .eq('email', email)
+//       .single();
+
+//     if (error || !user) {
+//       return res.status(401).json({ error: 'Invalid credentials' });
+//     }
+
+//     // Check password
+//     const validPassword = await bcrypt.compare(password, user.password_hash);
+//     if (!validPassword) {
+//       return res.status(401).json({ error: 'Invalid credentials' });
+//     }
+
+//     // Create JWT token
+//     const token = jwt.sign(
+//       { 
+//         id: user.id, 
+//         email: user.email, 
+//         name: user.name 
+//       },
+//       process.env.JWT_SECRET,
+//       { expiresIn: '7d' }
+//     );
+
+//     // Remove password hash from response
+//     const { password_hash, ...userWithoutPassword } = user;
+
+//     res.status(200).json({
+//       message: 'Login successful',
+//       user: userWithoutPassword,
+//       token
+//     });
+
+//   } catch (error) {
+//     console.error('Login error:', error);
+//     res.status(500).json({ error: 'Internal server error' });
+//   }
+// });
+
+
+
+// In your login route, add debug logs:
 router.post('/login', async (req, res) => {
   try {
+    console.log('🔑 Login attempt for:', req.body.email);
+    
     const { email, password } = req.body;
 
     // Validate input
     if (!email || !password) {
+      console.log('❌ Missing email or password');
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
@@ -95,37 +153,50 @@ router.post('/login', async (req, res) => {
       .single();
 
     if (error || !user) {
+      console.log('❌ User not found:', email);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
+
+    console.log('👤 User found:', user.id, user.email);
 
     // Check password
     const validPassword = await bcrypt.compare(password, user.password_hash);
     if (!validPassword) {
+      console.log('❌ Invalid password for:', email);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     // Create JWT token
+    console.log('🔄 Creating JWT token...');
+    console.log('🔑 JWT_SECRET exists:', !!process.env.JWT_SECRET);
+    
     const token = jwt.sign(
       { 
         id: user.id, 
         email: user.email, 
         name: user.name 
       },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET || 'fallback-secret-for-debug', // Add fallback
       { expiresIn: '7d' }
     );
+
+    console.log('✅ Token created:', token ? 'YES' : 'NO', token?.substring(0, 20) + '...');
 
     // Remove password hash from response
     const { password_hash, ...userWithoutPassword } = user;
 
-    res.status(200).json({
+    const response = {
       message: 'Login successful',
       user: userWithoutPassword,
-      token
-    });
+      token: token
+    };
+
+    console.log('📤 Sending response:', JSON.stringify(response, null, 2));
+    
+    res.status(200).json(response);
 
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('💥 Login error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
