@@ -1,7 +1,62 @@
+// const express = require('express');
+// const router = express.Router();
+// const supabase = require('../supabase');
+// const { authenticateToken } = require('../middleware/auth');
+
+
 const express = require('express');
 const router = express.Router();
 const supabase = require('../supabase');
 const { authenticateToken } = require('../middleware/auth');
+const cloudinary = require('cloudinary').v2;
+const multer = require('multer');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+// Configure multer storage for Cloudinary - CROPS folder
+const cropStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'harvest-hub/crops', // Different folder for crops
+    allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
+    transformation: [{ width: 800, height: 800, crop: 'limit' }] // Larger for crops
+  }
+});
+
+const uploadCrop = multer({ storage: cropStorage });
+
+// Upload crop image
+router.post('/upload-image', authenticateToken, uploadCrop.single('image'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: 'No image file provided'
+      });
+    }
+
+    const imageUrl = req.file.path;
+    
+    res.status(200).json({
+      success: true,
+      message: 'Crop image uploaded successfully',
+      imageUrl
+    });
+
+  } catch (error) {
+    console.error('Upload crop image error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to upload image'
+    });
+  }
+});
 
 // Get all crops for current user
 router.get('/', authenticateToken, async (req, res) => {
@@ -107,6 +162,88 @@ router.get('/:id', authenticateToken, async (req, res) => {
 });
 
 // Create new crop
+// router.post('/', authenticateToken, async (req, res) => {
+//   try {
+//     const { 
+//       garden_id, 
+//       name, 
+//       category, 
+//       variety, 
+//       planting_date, 
+//       expected_harvest, 
+//       status, 
+//       progress, 
+//       notes, 
+//       image_url, 
+//       is_shared, 
+//       quantity, 
+//       quantity_unit 
+//     } = req.body;
+
+//     if (!name || !garden_id) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Crop name and garden ID are required'
+//       });
+//     }
+
+//     // Verify garden belongs to user
+//     const { data: garden, error: gardenError } = await supabase
+//       .from('gardens')
+//       .select('id')
+//       .eq('id', garden_id)
+//       .eq('user_id', req.user.id)
+//       .single();
+
+//     if (gardenError || !garden) {
+//       return res.status(404).json({
+//         success: false,
+//         error: 'Garden not found or access denied'
+//       });
+//     }
+
+//     const cropData = {
+//       garden_id,
+//       user_id: req.user.id,
+//       name,
+//       category: category || 'vegetable',
+//       variety: variety || null,
+//       planting_date: planting_date || null,
+//       expected_harvest: expected_harvest || null,
+//       status: status || 'seedling',
+//       progress: progress || 0,
+//       notes: notes || null,
+//       image_url: image_url || null,
+//       is_shared: is_shared || false,
+//       quantity: quantity || 1,
+//       quantity_unit: quantity_unit || null,
+//       created_at: new Date().toISOString(),
+//       updated_at: new Date().toISOString()
+//     };
+
+//     const { data: crop, error } = await supabase
+//       .from('crops')
+//       .insert([cropData])
+//       .select()
+//       .single();
+
+//     if (error) throw error;
+
+//     res.status(201).json({
+//       success: true,
+//       message: 'Crop created successfully',
+//       crop
+//     });
+//   } catch (error) {
+//     console.error('Create crop error:', error);
+//     res.status(500).json({ 
+//       success: false,
+//       error: 'Failed to create crop' 
+//     });
+//   }
+// });
+
+// Update your existing POST route to handle image_url
 router.post('/', authenticateToken, async (req, res) => {
   try {
     const { 
@@ -119,7 +256,7 @@ router.post('/', authenticateToken, async (req, res) => {
       status, 
       progress, 
       notes, 
-      image_url, 
+      image_url, // This will come from the upload first
       is_shared, 
       quantity, 
       quantity_unit 
@@ -158,7 +295,7 @@ router.post('/', authenticateToken, async (req, res) => {
       status: status || 'seedling',
       progress: progress || 0,
       notes: notes || null,
-      image_url: image_url || null,
+      image_url: image_url || null, // Now accepts image_url
       is_shared: is_shared || false,
       quantity: quantity || 1,
       quantity_unit: quantity_unit || null,
@@ -187,6 +324,7 @@ router.post('/', authenticateToken, async (req, res) => {
     });
   }
 });
+
 
 // Update crop
 router.put('/:id', authenticateToken, async (req, res) => {
@@ -246,39 +384,94 @@ router.put('/:id', authenticateToken, async (req, res) => {
 });
 
 // Delete crop
-router.delete('/:id', authenticateToken, async (req, res) => {
+// router.delete('/:id', authenticateToken, async (req, res) => {
+//   try {
+//     // First check if crop exists and belongs to user
+//     const { data: existingCrop, error: checkError } = await supabase
+//       .from('crops')
+//       .select('id')
+//       .eq('id', req.params.id)
+//       .eq('user_id', req.user.id)
+//       .single();
+
+//     if (checkError || !existingCrop) {
+//       return res.status(404).json({
+//         success: false,
+//         error: 'Crop not found or access denied'
+//       });
+//     }
+
+//     const { error } = await supabase
+//       .from('crops')
+//       .delete()
+//       .eq('id', req.params.id);
+
+//     if (error) throw error;
+
+//     res.status(200).json({
+//       success: true,
+//       message: 'Crop deleted successfully'
+//     });
+//   } catch (error) {
+//     console.error('Delete crop error:', error);
+//     res.status(500).json({ 
+//       success: false,
+//       error: 'Failed to delete crop' 
+//     });
+//   }
+// });
+
+
+
+
+// Delete crop image
+router.delete('/image/:cropId', authenticateToken, async (req, res) => {
   try {
-    // First check if crop exists and belongs to user
-    const { data: existingCrop, error: checkError } = await supabase
+    // Get crop to find image URL
+    const { data: crop, error: fetchError } = await supabase
       .from('crops')
-      .select('id')
-      .eq('id', req.params.id)
+      .select('image_url')
+      .eq('id', req.params.cropId)
       .eq('user_id', req.user.id)
       .single();
 
-    if (checkError || !existingCrop) {
+    if (fetchError || !crop) {
       return res.status(404).json({
         success: false,
-        error: 'Crop not found or access denied'
+        error: 'Crop not found'
       });
     }
 
-    const { error } = await supabase
-      .from('crops')
-      .delete()
-      .eq('id', req.params.id);
+    // Delete from Cloudinary if exists
+    if (crop?.image_url) {
+      try {
+        const publicId = crop.image_url.split('/').pop().split('.')[0];
+        await cloudinary.uploader.destroy(`harvest-hub/crops/${publicId}`);
+      } catch (cloudinaryError) {
+        console.error('Cloudinary delete error:', cloudinaryError);
+      }
+    }
 
-    if (error) throw error;
+    // Update crop to remove image URL
+    const { error: updateError } = await supabase
+      .from('crops')
+      .update({ image_url: null, updated_at: new Date().toISOString() })
+      .eq('id', req.params.cropId);
+
+    if (updateError) {
+      throw updateError;
+    }
 
     res.status(200).json({
       success: true,
-      message: 'Crop deleted successfully'
+      message: 'Crop image removed successfully'
     });
+
   } catch (error) {
-    console.error('Delete crop error:', error);
-    res.status(500).json({ 
+    console.error('Delete crop image error:', error);
+    res.status(500).json({
       success: false,
-      error: 'Failed to delete crop' 
+      error: 'Failed to delete image'
     });
   }
 });
