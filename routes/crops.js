@@ -92,7 +92,7 @@ router.post('/upload-image-web', authenticateToken, async (req, res) => {
   }
 });
 
-// Get all crops for current user
+// Get all crops for current user now and even later
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const { data: crops, error } = await supabase
