@@ -58,6 +58,40 @@ router.post('/upload-image', authenticateToken, uploadCrop.single('image'), asyn
   }
 });
 
+
+// Handle base64 image upload for web
+router.post('/upload-image-web', authenticateToken, async (req, res) => {
+  try {
+    const { image, fileName } = req.body;
+    
+    if (!image) {
+      return res.status(400).json({
+        success: false,
+        error: 'No image data provided'
+      });
+    }
+
+    // Upload to Cloudinary using base64
+    const result = await cloudinary.uploader.upload(`data:image/jpeg;base64,${image}`, {
+      folder: 'harvest-hub/crops',
+      public_id: `crop_${Date.now()}_${fileName}`,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Crop image uploaded successfully',
+      imageUrl: result.secure_url
+    });
+
+  } catch (error) {
+    console.error('Upload crop image error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to upload image'
+    });
+  }
+});
+
 // Get all crops for current user
 router.get('/', authenticateToken, async (req, res) => {
   try {
