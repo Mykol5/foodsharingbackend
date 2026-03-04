@@ -60,6 +60,7 @@ router.post('/upload-image', authenticateToken, uploadCrop.single('image'), asyn
 
 
 // Handle base64 image upload for web
+// Add this new endpoint for web uploads (base64)
 router.post('/upload-image-web', authenticateToken, async (req, res) => {
   try {
     const { image, fileName } = req.body;
@@ -71,11 +72,15 @@ router.post('/upload-image-web', authenticateToken, async (req, res) => {
       });
     }
 
+    console.log('📤 Received base64 image, length:', image.length);
+
     // Upload to Cloudinary using base64
     const result = await cloudinary.uploader.upload(`data:image/jpeg;base64,${image}`, {
       folder: 'harvest-hub/crops',
-      public_id: `crop_${Date.now()}_${fileName}`,
+      public_id: `crop_${Date.now()}_${fileName.replace(/[^a-zA-Z0-9]/g, '_')}`,
     });
+
+    console.log('✅ Cloudinary upload successful:', result.secure_url);
 
     res.status(200).json({
       success: true,
@@ -84,10 +89,10 @@ router.post('/upload-image-web', authenticateToken, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Upload crop image error:', error);
+    console.error('❌ Upload crop image error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to upload image'
+      error: 'Failed to upload image: ' + error.message
     });
   }
 });
@@ -195,6 +200,8 @@ router.get('/:id', authenticateToken, async (req, res) => {
   }
 });
 
+
+// Add this new e
 // Create new crop
 // router.post('/', authenticateToken, async (req, res) => {
 //   try {
