@@ -227,22 +227,29 @@ router.put('/', authenticateToken, async (req, res) => {
 });
 
 // Upload profile image
-router.post('/upload-image', authenticateToken, upload.single('image'), async (req, res) => {
+// Add this to your profile.js
+router.post('/upload-image-web', authenticateToken, async (req, res) => {
   try {
-    if (!req.file) {
+    const { image, fileName } = req.body;
+    
+    if (!image) {
       return res.status(400).json({
         success: false,
-        error: 'No image file provided'
+        error: 'No image data provided'
       });
     }
 
-    const imageUrl = req.file.path;
+    // Upload to Cloudinary using base64
+    const result = await cloudinary.uploader.upload(`data:image/jpeg;base64,${image}`, {
+      folder: 'harvest-hub/profiles',
+      public_id: `profile_${req.user.id}_${Date.now()}`,
+    });
 
     // Update user profile with new image URL
     const { data: user, error } = await supabase
       .from('users')
       .update({
-        profile_image_url: imageUrl,
+        profile_image_url: result.secure_url,
         updated_at: new Date().toISOString()
       })
       .eq('id', req.user.id)
@@ -250,25 +257,21 @@ router.post('/upload-image', authenticateToken, upload.single('image'), async (r
       .single();
 
     if (error) {
-      console.error('Update profile image error:', error);
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to update profile image'
-      });
+      throw error;
     }
 
     res.status(200).json({
       success: true,
       message: 'Profile image uploaded successfully',
-      imageUrl,
+      imageUrl: result.secure_url,
       user
     });
 
   } catch (error) {
-    console.error('Upload image error:', error);
+    console.error('Upload profile image error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to upload image'
+      error: 'Failed to upload image: ' + error.message
     });
   }
 });
