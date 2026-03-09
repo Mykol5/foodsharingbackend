@@ -3,17 +3,16 @@ const cors = require('cors');
 require('dotenv').config();
 
 // Import routes
-// Import routes
 const authRoutes = require('./routes/auth');
 const gardenRoutes = require('./routes/gardens');
 const cropRoutes = require('./routes/crops');
-const profileRoutes = require('./routes/profile');
+const sharedItemsRoutes = require('./routes/sharedItems'); // ADD THIS
 
 const app = express();
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:8080', 'https://mykol5.github.io/FoodGardenApp', 'https://mykol5.github.io'], // Add your Flutter web URL
+  origin: ['http://localhost:3000', 'http://localhost:8080', 'http://localhost:56172'], // Add your Flutter web URL
   credentials: true
 }));
 app.use(express.json());
@@ -36,6 +35,7 @@ app.get('/api', (req, res) => {
       auth: '/api/auth',
       gardens: '/api/gardens',
       crops: '/api/crops',
+      shared: '/api/shared-items', // ADD THIS
       health: '/health'
     }
   });
@@ -45,7 +45,7 @@ app.get('/api', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/gardens', gardenRoutes);
 app.use('/api/crops', cropRoutes);
-app.use('/api/profile', profileRoutes);
+app.use('/api/shared-items', sharedItemsRoutes); // ADD THIS
 
 // Basic error handler
 app.use((err, req, res, next) => {
@@ -66,7 +66,5 @@ app.listen(PORT, () => {
   console.log(`🔐 Auth: http://localhost:${PORT}/api/auth`);
   console.log(`🌿 Gardens: http://localhost:${PORT}/api/gardens`);
   console.log(`🥦 Crops: http://localhost:${PORT}/api/crops`);
-  console.log(`👤 Profile: http://localhost:${PORT}/api/profile`);
+  console.log(`📦 Shared Items: http://localhost:${PORT}/api/shared-items`); // ADD THIS
 });
-
-
