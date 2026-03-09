@@ -6,7 +6,7 @@ require('dotenv').config();
 const authRoutes = require('./routes/auth');
 const gardenRoutes = require('./routes/gardens');
 const cropRoutes = require('./routes/crops');
-const sharedItemsRoutes = require('./routes/shared_items'); // ADD THIS
+const sharedItemsRoutes = require('./routes/sharedItems'); // ADD THIS
 
 const app = express();
 
