@@ -6,15 +6,29 @@ require('dotenv').config();
 const authRoutes = require('./routes/auth');
 const gardenRoutes = require('./routes/gardens');
 const cropRoutes = require('./routes/crops');
-const sharedItemsRoutes = require('./routes/sharedItems'); // ADD THIS
+const sharedItemsRoutes = require('./routes/sharedItems');
 
 const app = express();
 
-// Middleware
-app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:8080', 'http://localhost:56172'], // Add your Flutter web URL
-  credentials: true
-}));
+// Update CORS configuration - THIS IS THE KEY PART
+const corsOptions = {
+  origin: [
+    'http://localhost:3000',
+    'http://localhost:8080', 
+    'http://localhost:56172',
+    'https://mykol5.github.io'  // ADD YOUR GITHUB PAGES DOMAIN
+  ],
+  credentials: true,              // IMPORTANT: Allow credentials (cookies, authorization headers)
+  optionsSuccessStatus: 200,       // Some legacy browsers choke on 204
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+};
+
+app.use(cors(corsOptions));
+
+// Handle preflight requests explicitly
+app.options('*', cors(corsOptions));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -35,7 +49,7 @@ app.get('/api', (req, res) => {
       auth: '/api/auth',
       gardens: '/api/gardens',
       crops: '/api/crops',
-      shared: '/api/shared-items', // ADD THIS
+      shared: '/api/shared-items',
       health: '/health'
     }
   });
@@ -45,7 +59,7 @@ app.get('/api', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/gardens', gardenRoutes);
 app.use('/api/crops', cropRoutes);
-app.use('/api/shared-items', sharedItemsRoutes); // ADD THIS
+app.use('/api/shared-items', sharedItemsRoutes);
 
 // Basic error handler
 app.use((err, req, res, next) => {
@@ -66,5 +80,5 @@ app.listen(PORT, () => {
   console.log(`🔐 Auth: http://localhost:${PORT}/api/auth`);
   console.log(`🌿 Gardens: http://localhost:${PORT}/api/gardens`);
   console.log(`🥦 Crops: http://localhost:${PORT}/api/crops`);
-  console.log(`📦 Shared Items: http://localhost:${PORT}/api/shared-items`); // ADD THIS
+  console.log(`📦 Shared Items: http://localhost:${PORT}/api/shared-items`);
 });
