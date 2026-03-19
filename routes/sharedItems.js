@@ -217,6 +217,66 @@ router.put('/:id/status', authenticateToken, async (req, res) => {
   }
 });
 
+
+// Update shared item (e.g., update quantity)
+router.put('/:id', authenticateToken, async (req, res) => {
+  try {
+    const { quantity, status } = req.body;
+    
+    // First check if item exists and belongs to user
+    const { data: existingItem, error: checkError } = await supabase
+      .from('shared_items')
+      .select('user_id')
+      .eq('id', req.params.id)
+      .single();
+
+    if (checkError || !existingItem) {
+      return res.status(404).json({
+        success: false,
+        error: 'Item not found'
+      });
+    }
+
+    // Prepare update data
+    const updateData = {
+      updated_at: new Date().toISOString()
+    };
+    
+    if (quantity !== undefined) updateData.quantity = quantity;
+    if (status !== undefined) updateData.status = status;
+    
+    // If quantity becomes 0, automatically set status to 'claimed'
+    if (quantity === 0) {
+      updateData.status = 'claimed';
+    }
+
+    const { data: item, error } = await supabase
+      .from('shared_items')
+      .update(updateData)
+      .eq('id', req.params.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.status(200).json({
+      success: true,
+      message: 'Item updated successfully',
+      item
+    });
+  } catch (error) {
+    console.error('Update shared item error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to update item: ' + error.message 
+    });
+  }
+});
+
+
+
+
+
 // Delete shared item
 router.delete('/:id', authenticateToken, async (req, res) => {
   try {
