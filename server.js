@@ -10,6 +10,8 @@ const cropRoutes = require('./routes/crops');
 const sharedItemsRoutes = require('./routes/sharedItems');
 const chatRoutes = require('./routes/chats');
 const messageRoutes = require('./routes/messages');
+const questionsRoutes = require('./routes/questions'); // ADD THIS
+const zonesRoutes = require('./routes/zones'); // ADD THIS (optional)
 
 // Import WebSocket server
 const WebSocketServer = require('./websocket/server');
@@ -23,16 +25,16 @@ const wsServer = new WebSocketServer(server, { path: '/ws' });
 // Make WebSocket server available to routes
 app.set('wsServer', wsServer);
 
-// Update CORS configuration - THIS IS THE KEY PART
+// Update CORS configuration
 const corsOptions = {
   origin: [
     'http://localhost:3000',
     'http://localhost:8080', 
     'http://localhost:56172',
-    'https://mykol5.github.io'  // ADD YOUR GITHUB PAGES DOMAIN
+    'https://mykol5.github.io'
   ],
-  credentials: true,              // IMPORTANT: Allow credentials (cookies, authorization headers)
-  optionsSuccessStatus: 200,       // Some legacy browsers choke on 204
+  credentials: true,
+  optionsSuccessStatus: 200,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 };
@@ -65,6 +67,8 @@ app.get('/api', (req, res) => {
       shared: '/api/shared-items',
       chats: '/api/chats',
       messages: '/api/messages',
+      questions: '/api/questions', // ADD THIS
+      zones: '/api/zones', // ADD THIS (optional)
       health: '/health'
     }
   });
@@ -77,6 +81,8 @@ app.use('/api/crops', cropRoutes);
 app.use('/api/shared-items', sharedItemsRoutes);
 app.use('/api/chats', chatRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/questions', questionsRoutes); // ADD THIS
+app.use('/api/zones', zonesRoutes); // ADD THIS (optional)
 
 // Basic error handler
 app.use((err, req, res, next) => {
@@ -100,9 +106,10 @@ server.listen(PORT, () => {
   console.log(`📦 Shared Items: http://localhost:${PORT}/api/shared-items`);
   console.log(`💬 Chats: http://localhost:${PORT}/api/chats`);
   console.log(`✉️ Messages: http://localhost:${PORT}/api/messages`);
+  console.log(`❓ Questions: http://localhost:${PORT}/api/questions`); // ADD THIS
+  console.log(`🗺️ Zones: http://localhost:${PORT}/api/zones`); // ADD THIS (optional)
   console.log(`🔌 WebSocket: ws://localhost:${PORT}/ws`);
 });
-
 
 
 
