@@ -7,7 +7,7 @@ const { authenticateToken } = require('../middleware/auth');
 router.get('/', async (req, res) => {
   try {
     const { category, search, solved, limit = 20, offset = 0 } = req.query;
-    const userId = req.user?.id; // Get user ID if authenticated
+    const userId = req.user?.id;
     
     let query = supabase
       .from('questions')
@@ -19,7 +19,6 @@ router.get('/', async (req, res) => {
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
-    // Apply filters
     if (category && category !== 'All') {
       query = query.eq('category', category.toLowerCase());
     }
@@ -36,20 +35,20 @@ router.get('/', async (req, res) => {
 
     if (error) throw error;
 
-    // Get user likes for questions if user is authenticated
     let userLikes = new Set();
-    if (userId) {
+    if (userId && questions && questions.length > 0) {
+      const questionIds = questions.map(q => q.id);
       const { data: likes } = await supabase
         .from('question_likes')
         .select('question_id')
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .in('question_id', questionIds);
       
       if (likes) {
         userLikes = new Set(likes.map(l => l.question_id));
       }
     }
 
-    // Format response
     const formattedQuestions = questions.map(q => ({
       id: q.id,
       title: q.title,
@@ -86,7 +85,6 @@ router.get('/:id', async (req, res) => {
     const { id } = req.params;
     const userId = req.user?.id;
 
-    // Get question
     const { data: question, error: qError } = await supabase
       .from('questions')
       .select(`
@@ -103,7 +101,6 @@ router.get('/:id', async (req, res) => {
       });
     }
 
-    // Get answers
     const { data: answers, error: aError } = await supabase
       .from('answers')
       .select(`
@@ -115,9 +112,8 @@ router.get('/:id', async (req, res) => {
 
     if (aError) throw aError;
 
-    // Get user likes for answers if authenticated
     let userAnswerLikes = new Set();
-    if (userId && answers.length > 0) {
+    if (userId && answers && answers.length > 0) {
       const answerIds = answers.map(a => a.id);
       const { data: likes } = await supabase
         .from('answer_likes')
@@ -155,7 +151,6 @@ router.get('/:id', async (req, res) => {
         likes: question.likes || 0,
         solved: question.solved || false,
         createdAt: question.created_at,
-        userLiked: false, // Can be added similarly if needed
         answers: formattedAnswers
       }
     });
@@ -198,33 +193,11 @@ router.post('/', authenticateToken, async (req, res) => {
 
     if (error) throw error;
 
-    // Get author info
     const { data: author } = await supabase
       .from('users')
       .select('name, profile_image_url')
       .eq('id', userId)
       .single();
-
-    // Broadcast via WebSocket if available
-    const wsServer = req.app.get('wsServer');
-    if (wsServer) {
-      wsServer.sendNotification(null, {
-        type: 'new_question',
-        question: {
-          id: question.id,
-          title: question.title,
-          description: question.description,
-          category: question.category,
-          author: author?.name || 'Anonymous',
-          authorId: userId,
-          authorImage: author?.profile_image_url || '',
-          answers: 0,
-          likes: 0,
-          solved: false,
-          createdAt: question.created_at
-        }
-      });
-    }
 
     res.status(201).json({
       success: true,
@@ -254,14 +227,13 @@ router.post('/', authenticateToken, async (req, res) => {
   }
 });
 
-// Update question (solved status only - likes handled separately)
+// Update question (solved status only)
 router.put('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { solved } = req.body;
     const userId = req.user.id;
 
-    // Verify user owns the question
     const { data: question, error: checkError } = await supabase
       .from('questions')
       .select('author_id')
@@ -310,13 +282,12 @@ router.put('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Toggle like on question (POST - like, DELETE - unlike)
-router.post('/questions/:questionId/like', authenticateToken, async (req, res) => {
+// Toggle like on question - FIXED ROUTE PATH
+router.post('/:questionId/like', authenticateToken, async (req, res) => {
   try {
     const { questionId } = req.params;
     const userId = req.user.id;
 
-    // Get current question
     const { data: question, error: getError } = await supabase
       .from('questions')
       .select('likes, author_id')
@@ -330,7 +301,6 @@ router.post('/questions/:questionId/like', authenticateToken, async (req, res) =
       });
     }
 
-    // Check if user already liked this question
     const { data: existingLike, error: likeCheckError } = await supabase
       .from('question_likes')
       .select('id')
@@ -344,7 +314,6 @@ router.post('/questions/:questionId/like', authenticateToken, async (req, res) =
     let liked = false;
 
     if (existingLike) {
-      // User already liked - remove the like (unlike)
       const { error: deleteError } = await supabase
         .from('question_likes')
         .delete()
@@ -356,7 +325,6 @@ router.post('/questions/:questionId/like', authenticateToken, async (req, res) =
       newLikes = Math.max(0, question.likes - 1);
       liked = false;
     } else {
-      // User hasn't liked - add like
       const { error: insertError } = await supabase
         .from('question_likes')
         .insert({
@@ -371,7 +339,6 @@ router.post('/questions/:questionId/like', authenticateToken, async (req, res) =
       liked = true;
     }
 
-    // Update question likes count
     const { data: updatedQuestion, error: updateError } = await supabase
       .from('questions')
       .update({ 
@@ -383,17 +350,6 @@ router.post('/questions/:questionId/like', authenticateToken, async (req, res) =
       .single();
 
     if (updateError) throw updateError;
-
-    // Broadcast via WebSocket if available
-    const wsServer = req.app.get('wsServer');
-    if (wsServer) {
-      wsServer.sendNotification(null, {
-        type: 'question_like_toggled',
-        questionId: questionId,
-        likes: updatedQuestion.likes,
-        liked: liked
-      });
-    }
 
     res.status(200).json({
       success: true,
@@ -425,7 +381,6 @@ router.post('/:id/answers', authenticateToken, async (req, res) => {
       });
     }
 
-    // Check if question exists
     const { data: question, error: qError } = await supabase
       .from('questions')
       .select('id, author_id')
@@ -439,7 +394,6 @@ router.post('/:id/answers', authenticateToken, async (req, res) => {
       });
     }
 
-    // Add answer
     const { data: answer, error } = await supabase
       .from('answers')
       .insert({
@@ -454,32 +408,11 @@ router.post('/:id/answers', authenticateToken, async (req, res) => {
 
     if (error) throw error;
 
-    // Get author info
     const { data: author } = await supabase
       .from('users')
       .select('name, profile_image_url')
       .eq('id', userId)
       .single();
-
-    // Broadcast via WebSocket
-    const wsServer = req.app.get('wsServer');
-    if (wsServer) {
-      wsServer.sendNotification(null, {
-        type: 'new_answer',
-        questionId,
-        answer: {
-          id: answer.id,
-          text: answer.text,
-          author: author?.name || 'Anonymous',
-          authorId: userId,
-          authorImage: author?.profile_image_url || '',
-          likes: 0,
-          isAccepted: false,
-          createdAt: answer.created_at,
-          userLiked: false
-        }
-      });
-    }
 
     res.status(201).json({
       success: true,
@@ -506,13 +439,12 @@ router.post('/:id/answers', authenticateToken, async (req, res) => {
   }
 });
 
-// Toggle like on answer (POST - like, DELETE - unlike)
+// Toggle like on answer - FIXED ROUTE PATH
 router.post('/answers/:answerId/like', authenticateToken, async (req, res) => {
   try {
     const { answerId } = req.params;
     const userId = req.user.id;
 
-    // Get current answer
     const { data: answer, error: getError } = await supabase
       .from('answers')
       .select('likes, author_id, question_id')
@@ -526,7 +458,6 @@ router.post('/answers/:answerId/like', authenticateToken, async (req, res) => {
       });
     }
 
-    // Check if user already liked this answer
     const { data: existingLike, error: likeCheckError } = await supabase
       .from('answer_likes')
       .select('id')
@@ -540,7 +471,6 @@ router.post('/answers/:answerId/like', authenticateToken, async (req, res) => {
     let liked = false;
 
     if (existingLike) {
-      // User already liked - remove the like (unlike)
       const { error: deleteError } = await supabase
         .from('answer_likes')
         .delete()
@@ -552,7 +482,6 @@ router.post('/answers/:answerId/like', authenticateToken, async (req, res) => {
       newLikes = Math.max(0, answer.likes - 1);
       liked = false;
     } else {
-      // User hasn't liked - add like
       const { error: insertError } = await supabase
         .from('answer_likes')
         .insert({
@@ -567,7 +496,6 @@ router.post('/answers/:answerId/like', authenticateToken, async (req, res) => {
       liked = true;
     }
 
-    // Update answer likes count
     const { data: updatedAnswer, error: updateError } = await supabase
       .from('answers')
       .update({ 
@@ -579,18 +507,6 @@ router.post('/answers/:answerId/like', authenticateToken, async (req, res) => {
       .single();
 
     if (updateError) throw updateError;
-
-    // Broadcast via WebSocket if available
-    const wsServer = req.app.get('wsServer');
-    if (wsServer) {
-      wsServer.sendNotification(null, {
-        type: 'answer_like_toggled',
-        answerId: answerId,
-        questionId: answer.question_id,
-        likes: updatedAnswer.likes,
-        liked: liked
-      });
-    }
 
     res.status(200).json({
       success: true,
@@ -614,7 +530,6 @@ router.put('/answers/:answerId/accept', authenticateToken, async (req, res) => {
     const { answerId } = req.params;
     const userId = req.user.id;
 
-    // Get answer details
     const { data: answer, error: aError } = await supabase
       .from('answers')
       .select('question_id, author_id')
@@ -628,7 +543,6 @@ router.put('/answers/:answerId/accept', authenticateToken, async (req, res) => {
       });
     }
 
-    // Get question to verify ownership
     const { data: question, error: qError } = await supabase
       .from('questions')
       .select('author_id')
@@ -642,7 +556,6 @@ router.put('/answers/:answerId/accept', authenticateToken, async (req, res) => {
       });
     }
 
-    // Only question author can accept answer
     if (question.author_id !== userId) {
       return res.status(403).json({
         success: false,
@@ -650,7 +563,6 @@ router.put('/answers/:answerId/accept', authenticateToken, async (req, res) => {
       });
     }
 
-    // First, unaccept any previously accepted answers for this question
     await supabase
       .from('answers')
       .update({ 
@@ -659,7 +571,6 @@ router.put('/answers/:answerId/accept', authenticateToken, async (req, res) => {
       })
       .eq('question_id', answer.question_id);
 
-    // Mark this answer as accepted and question as solved
     const { error: updateError } = await supabase
       .from('answers')
       .update({ 
@@ -677,16 +588,6 @@ router.put('/answers/:answerId/accept', authenticateToken, async (req, res) => {
         updated_at: new Date().toISOString()
       })
       .eq('id', answer.question_id);
-
-    // Broadcast via WebSocket
-    const wsServer = req.app.get('wsServer');
-    if (wsServer) {
-      wsServer.sendNotification(null, {
-        type: 'answer_accepted',
-        answerId: answerId,
-        questionId: answer.question_id
-      });
-    }
 
     res.status(200).json({
       success: true,
@@ -708,7 +609,6 @@ router.delete('/answers/:answerId', authenticateToken, async (req, res) => {
     const { answerId } = req.params;
     const userId = req.user.id;
 
-    // Check if user is answer author
     const { data: answer, error: checkError } = await supabase
       .from('answers')
       .select('author_id, question_id')
@@ -729,13 +629,11 @@ router.delete('/answers/:answerId', authenticateToken, async (req, res) => {
       });
     }
 
-    // First delete all likes for this answer
     await supabase
       .from('answer_likes')
       .delete()
       .eq('answer_id', answerId);
 
-    // Then delete the answer
     const { error } = await supabase
       .from('answers')
       .delete()
@@ -743,13 +641,11 @@ router.delete('/answers/:answerId', authenticateToken, async (req, res) => {
 
     if (error) throw error;
 
-    // Check if question still has any answers
     const { data: remainingAnswers } = await supabase
       .from('answers')
       .select('id')
       .eq('question_id', answer.question_id);
 
-    // If no answers left, mark question as unsolved
     if (!remainingAnswers || remainingAnswers.length === 0) {
       await supabase
         .from('questions')
@@ -774,13 +670,12 @@ router.delete('/answers/:answerId', authenticateToken, async (req, res) => {
   }
 });
 
-// Delete question (and all associated answers and likes)
-router.delete('/questions/:questionId', authenticateToken, async (req, res) => {
+// Delete question
+router.delete('/:questionId', authenticateToken, async (req, res) => {
   try {
     const { questionId } = req.params;
     const userId = req.user.id;
 
-    // Check if user owns the question
     const { data: question, error: checkError } = await supabase
       .from('questions')
       .select('author_id')
@@ -801,13 +696,11 @@ router.delete('/questions/:questionId', authenticateToken, async (req, res) => {
       });
     }
 
-    // Get all answers for this question
     const { data: answers } = await supabase
       .from('answers')
       .select('id')
       .eq('question_id', questionId);
 
-    // Delete likes for all answers
     if (answers && answers.length > 0) {
       const answerIds = answers.map(a => a.id);
       await supabase
@@ -815,20 +708,17 @@ router.delete('/questions/:questionId', authenticateToken, async (req, res) => {
         .delete()
         .in('answer_id', answerIds);
       
-      // Delete all answers
       await supabase
         .from('answers')
         .delete()
         .eq('question_id', questionId);
     }
 
-    // Delete question likes
     await supabase
       .from('question_likes')
       .delete()
       .eq('question_id', questionId);
 
-    // Delete the question
     const { error } = await supabase
       .from('questions')
       .delete()
@@ -851,7 +741,6 @@ router.delete('/questions/:questionId', authenticateToken, async (req, res) => {
 });
 
 module.exports = router;
-
 
 
 
