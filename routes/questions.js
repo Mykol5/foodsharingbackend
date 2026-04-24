@@ -61,7 +61,8 @@ router.get('/', async (req, res) => {
       likes: q.likes || 0,
       solved: q.solved || false,
       createdAt: q.created_at,
-      userLiked: userId ? userLikes.has(q.id) : false
+      userLiked: userId ? userLikes.has(q.id) : false,
+      image_url: q.image_url || null 
     }));
 
     res.status(200).json({
@@ -151,7 +152,8 @@ router.get('/:id', async (req, res) => {
         likes: question.likes || 0,
         solved: question.solved || false,
         createdAt: question.created_at,
-        answers: formattedAnswers
+        answers: formattedAnswers,
+        image_url: question.image_url || null
       }
     });
 
