@@ -200,6 +200,48 @@ router.delete('/:messageId', authenticateToken, async (req, res) => {
   }
 });
 
+
+// Add this endpoint to get request details for a message
+router.get('/request/:requestId', authenticateToken, async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const userId = req.user.id;
+
+    const { data: request, error } = await supabase
+      .from('product_requests')
+      .select(`
+        *,
+        product:shared_items(id, name, image_url, quantity_unit),
+        requester:users!requester_id(id, name, profile_image_url),
+        owner:users!owner_id(id, name, profile_image_url)
+      `)
+      .eq('id', requestId)
+      .single();
+
+    if (error) throw error;
+
+    // Check if user is involved
+    if (request.requester_id !== userId && request.owner_id !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      request: request
+    });
+
+  } catch (error) {
+    console.error('Get request error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch request' 
+    });
+  }
+});
+
 module.exports = router;
 
 
