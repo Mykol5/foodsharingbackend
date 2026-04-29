@@ -32,7 +32,8 @@ const corsOptions = {
     'http://localhost:3000',
     'http://localhost:8080', 
     'http://localhost:56172',
-    'https://mykol5.github.io'
+    'https://mykol5.github.io',
+    'https://smarttechhubinc.github.io'
   ],
   credentials: true,
   optionsSuccessStatus: 200,
