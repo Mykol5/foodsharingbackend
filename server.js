@@ -13,6 +13,7 @@ const messageRoutes = require('./routes/messages');
 const questionsRoutes = require('./routes/questions');
 const zonesRoutes = require('./routes/zones');
 const productRequestsRoutes = require('./routes/product_requests');
+const aiRoutes = require('./routes/ai');
 
 // Import WebSocket server
 const WebSocketServer = require('./websocket/server');
@@ -72,6 +73,7 @@ app.get('/api', (req, res) => {
       questions: '/api/questions',
       zones: '/api/zones',
       productRequests: '/api/products/:productId/request',
+      ai: '/api/ai',
       health: '/health'
     }
   });
@@ -87,6 +89,7 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/questions', questionsRoutes);
 app.use('/api/zones', zonesRoutes);
 app.use('/api', productRequestsRoutes); // This handles /api/products/* and /api/requests/*
+app.use('/api/ai', aiRoutes);
 
 // Basic error handler
 app.use((err, req, res, next) => {
