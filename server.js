@@ -14,6 +14,7 @@ const questionsRoutes = require('./routes/questions');
 const zonesRoutes = require('./routes/zones');
 const productRequestsRoutes = require('./routes/product_requests');
 const aiRoutes = require('./routes/ai');
+const profileRoutes = require('./routes/profile'); // ADD THIS LINE
 
 // Import WebSocket server
 const WebSocketServer = require('./websocket/server');
@@ -74,6 +75,7 @@ app.get('/api', (req, res) => {
       zones: '/api/zones',
       productRequests: '/api/products/:productId/request',
       ai: '/api/ai',
+      profile: '/api/profile', // ADD THIS
       health: '/health'
     }
   });
@@ -90,6 +92,7 @@ app.use('/api/questions', questionsRoutes);
 app.use('/api/zones', zonesRoutes);
 app.use('/api', productRequestsRoutes); // This handles /api/products/* and /api/requests/*
 app.use('/api/ai', aiRoutes);
+app.use('/api/profile', profileRoutes); // ADD THIS LINE
 
 // Basic error handler
 app.use((err, req, res, next) => {
@@ -116,9 +119,10 @@ server.listen(PORT, () => {
   console.log(`❓ Questions: http://localhost:${PORT}/api/questions`);
   console.log(`🗺️ Zones: http://localhost:${PORT}/api/zones`);
   console.log(`📝 Product Requests: http://localhost:${PORT}/api/products/:productId/request`);
+  console.log(`🤖 AI: http://localhost:${PORT}/api/ai`);
+  console.log(`👤 Profile: http://localhost:${PORT}/api/profile`); // ADD THIS
   console.log(`🔌 WebSocket: ws://localhost:${PORT}/ws`);
 });
-
 
 
 
