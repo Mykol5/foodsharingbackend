@@ -47,6 +47,8 @@ while (secPlanObj.next()) {
 
     var result = GlideDateTime.subtract(createdDate, currentDate);
 
+    result.getDisplayValue();
+
     var days = result.getDayPart();
 
     if ((days % 7) == 0) {
