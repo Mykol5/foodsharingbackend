@@ -677,6 +677,167 @@ router.delete('/image/:cropId', authenticateToken, async (req, res) => {
   }
 });
 
+
+
+// Archive a crop
+router.post('/:id/archive', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const { reason } = req.body;
+
+    // Verify ownership
+    const { data: crop, error: checkError } = await supabase
+      .from('crops')
+      .select('user_id')
+      .eq('id', id)
+      .single();
+
+    if (checkError || !crop) {
+      return res.status(404).json({
+        success: false,
+        error: 'Crop not found'
+      });
+    }
+
+    if (crop.user_id !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+    }
+
+    const { data: updatedCrop, error } = await supabase
+      .from('crops')
+      .update({
+        is_archived: true,
+        archive_reason: reason || null,
+        archived_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.status(200).json({
+      success: true,
+      message: 'Crop archived successfully',
+      crop: updatedCrop
+    });
+
+  } catch (error) {
+    console.error('Archive crop error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to archive crop'
+    });
+  }
+});
+
+// Restore a crop
+router.post('/:id/restore', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const { data: crop, error: checkError } = await supabase
+      .from('crops')
+      .select('user_id')
+      .eq('id', id)
+      .single();
+
+    if (checkError || !crop) {
+      return res.status(404).json({
+        success: false,
+        error: 'Crop not found'
+      });
+    }
+
+    if (crop.user_id !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+    }
+
+    const { data: updatedCrop, error } = await supabase
+      .from('crops')
+      .update({
+        is_archived: false,
+        archive_reason: null,
+        archived_at: null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.status(200).json({
+      success: true,
+      message: 'Crop restored successfully',
+      crop: updatedCrop
+    });
+
+  } catch (error) {
+    console.error('Restore crop error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to restore crop'
+    });
+  }
+});
+
+// Permanently delete a crop
+router.delete('/:id/permanent', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const { data: crop, error: checkError } = await supabase
+      .from('crops')
+      .select('user_id')
+      .eq('id', id)
+      .single();
+
+    if (checkError || !crop) {
+      return res.status(404).json({
+        success: false,
+        error: 'Crop not found'
+      });
+    }
+
+    if (crop.user_id !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+    }
+
+    const { error } = await supabase
+      .from('crops')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    res.status(200).json({
+      success: true,
+      message: 'Crop deleted permanently'
+    });
+
+  } catch (error) {
+    console.error('Delete crop error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete crop'
+    });
+  }
+});
+
 module.exports = router;
 
 
