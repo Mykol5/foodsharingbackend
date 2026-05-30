@@ -14,7 +14,7 @@ const questionsRoutes = require('./routes/questions');
 const zonesRoutes = require('./routes/zones');
 const productRequestsRoutes = require('./routes/product_requests');
 const aiRoutes = require('./routes/ai');
-const profileRoutes = require('./routes/profile'); // ADD THIS LINE
+const profileRoutes = require('./routes/profile');
 
 // Import WebSocket server
 const WebSocketServer = require('./websocket/server');
@@ -48,8 +48,9 @@ app.use(cors(corsOptions));
 // Handle preflight requests explicitly
 app.options('*', cors(corsOptions));
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// IMPORTANT: Increase body size limit for base64 images (50mb limit)
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Health check
 app.get('/health', (req, res) => {
@@ -75,7 +76,7 @@ app.get('/api', (req, res) => {
       zones: '/api/zones',
       productRequests: '/api/products/:productId/request',
       ai: '/api/ai',
-      profile: '/api/profile', // ADD THIS
+      profile: '/api/profile',
       health: '/health'
     }
   });
@@ -92,11 +93,20 @@ app.use('/api/questions', questionsRoutes);
 app.use('/api/zones', zonesRoutes);
 app.use('/api', productRequestsRoutes); // This handles /api/products/* and /api/requests/*
 app.use('/api/ai', aiRoutes);
-app.use('/api/profile', profileRoutes); // ADD THIS LINE
+app.use('/api/profile', profileRoutes);
 
-// Basic error handler
+// Basic error handler with specific handling for payload too large
 app.use((err, req, res, next) => {
   console.error(err.stack);
+  
+  // Handle payload too large error specifically
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ 
+      success: false,
+      error: 'Image too large. Please use a smaller image (max 10MB).' 
+    });
+  }
+  
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
@@ -120,9 +130,139 @@ server.listen(PORT, () => {
   console.log(`🗺️ Zones: http://localhost:${PORT}/api/zones`);
   console.log(`📝 Product Requests: http://localhost:${PORT}/api/products/:productId/request`);
   console.log(`🤖 AI: http://localhost:${PORT}/api/ai`);
-  console.log(`👤 Profile: http://localhost:${PORT}/api/profile`); // ADD THIS
+  console.log(`👤 Profile: http://localhost:${PORT}/api/profile`);
   console.log(`🔌 WebSocket: ws://localhost:${PORT}/ws`);
 });
+
+
+
+
+
+// const express = require('express');
+// const cors = require('cors');
+// const http = require('http');
+// require('dotenv').config();
+
+// // Import routes
+// const authRoutes = require('./routes/auth');
+// const gardenRoutes = require('./routes/gardens');
+// const cropRoutes = require('./routes/crops');
+// const sharedItemsRoutes = require('./routes/sharedItems');
+// const chatRoutes = require('./routes/chats');
+// const messageRoutes = require('./routes/messages');
+// const questionsRoutes = require('./routes/questions');
+// const zonesRoutes = require('./routes/zones');
+// const productRequestsRoutes = require('./routes/product_requests');
+// const aiRoutes = require('./routes/ai');
+// const profileRoutes = require('./routes/profile'); // ADD THIS LINE
+
+// // Import WebSocket server
+// const WebSocketServer = require('./websocket/server');
+
+// const app = express();
+// const server = http.createServer(app);
+
+// // Initialize WebSocket server with path
+// const wsServer = new WebSocketServer(server, { path: '/ws' });
+
+// // Make WebSocket server available to routes
+// app.set('wsServer', wsServer);
+
+// // Update CORS configuration
+// const corsOptions = {
+//   origin: [
+//     'http://localhost:3000',
+//     'http://localhost:8080', 
+//     'http://localhost:56172',
+//     'https://mykol5.github.io',
+//     'https://smarttechhubinc.github.io'
+//   ],
+//   credentials: true,
+//   optionsSuccessStatus: 200,
+//   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+//   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+// };
+
+// app.use(cors(corsOptions));
+
+// // Handle preflight requests explicitly
+// app.options('*', cors(corsOptions));
+
+// app.use(express.json());
+// app.use(express.urlencoded({ extended: true }));
+
+// // Health check
+// app.get('/health', (req, res) => {
+//   res.status(200).json({ 
+//     status: 'OK', 
+//     message: 'Harvest Hub API is running',
+//     timestamp: new Date().toISOString()
+//   });
+// });
+
+// // API Documentation
+// app.get('/api', (req, res) => {
+//   res.json({
+//     message: 'Harvest Hub API',
+//     endpoints: {
+//       auth: '/api/auth',
+//       gardens: '/api/gardens',
+//       crops: '/api/crops',
+//       shared: '/api/shared-items',
+//       chats: '/api/chats',
+//       messages: '/api/messages',
+//       questions: '/api/questions',
+//       zones: '/api/zones',
+//       productRequests: '/api/products/:productId/request',
+//       ai: '/api/ai',
+//       profile: '/api/profile', // ADD THIS
+//       health: '/health'
+//     }
+//   });
+// });
+
+// // Routes
+// app.use('/api/auth', authRoutes);
+// app.use('/api/gardens', gardenRoutes);
+// app.use('/api/crops', cropRoutes);
+// app.use('/api/shared-items', sharedItemsRoutes);
+// app.use('/api/chats', chatRoutes);
+// app.use('/api/messages', messageRoutes);
+// app.use('/api/questions', questionsRoutes);
+// app.use('/api/zones', zonesRoutes);
+// app.use('/api', productRequestsRoutes); // This handles /api/products/* and /api/requests/*
+// app.use('/api/ai', aiRoutes);
+// app.use('/api/profile', profileRoutes); // ADD THIS LINE
+
+// // Basic error handler
+// app.use((err, req, res, next) => {
+//   console.error(err.stack);
+//   res.status(500).json({ error: 'Something went wrong!' });
+// });
+
+// // 404 handler
+// app.use((req, res) => {
+//   res.status(404).json({ error: 'Route not found' });
+// });
+
+// // Start server with WebSocket support
+// const PORT = process.env.PORT || 5000;
+// server.listen(PORT, () => {
+//   console.log(`🚀 Server running on port ${PORT}`);
+//   console.log(`📡 Health check: http://localhost:${PORT}/health`);
+//   console.log(`🔐 Auth: http://localhost:${PORT}/api/auth`);
+//   console.log(`🌿 Gardens: http://localhost:${PORT}/api/gardens`);
+//   console.log(`🥦 Crops: http://localhost:${PORT}/api/crops`);
+//   console.log(`📦 Shared Items: http://localhost:${PORT}/api/shared-items`);
+//   console.log(`💬 Chats: http://localhost:${PORT}/api/chats`);
+//   console.log(`✉️ Messages: http://localhost:${PORT}/api/messages`);
+//   console.log(`❓ Questions: http://localhost:${PORT}/api/questions`);
+//   console.log(`🗺️ Zones: http://localhost:${PORT}/api/zones`);
+//   console.log(`📝 Product Requests: http://localhost:${PORT}/api/products/:productId/request`);
+//   console.log(`🤖 AI: http://localhost:${PORT}/api/ai`);
+//   console.log(`👤 Profile: http://localhost:${PORT}/api/profile`); // ADD THIS
+//   console.log(`🔌 WebSocket: ws://localhost:${PORT}/ws`);
+// });
 
 
 
