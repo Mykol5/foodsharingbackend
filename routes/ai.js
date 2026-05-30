@@ -260,4 +260,97 @@ Keep responses concise (2-3 paragraphs maximum). Use examples when helpful.`;
   }
 });
 
+
+// OpenAI version (replace the Claude code above)
+router.post('/analyze-image', authenticateToken, async (req, res) => {
+  try {
+    const { imageBase64, contentType } = req.body;
+    
+    if (!imageBase64) {
+      return res.status(400).json({
+        success: false,
+        error: 'No image data provided'
+      });
+    }
+
+    const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+    
+    if (!OPENAI_API_KEY) {
+      return res.status(500).json({
+        success: false,
+        error: 'AI service not configured'
+      });
+    }
+
+    // OpenAI Vision API
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: `You are an expert at identifying garden produce, fruits, vegetables, herbs, and crops from images.
+Analyze this image and respond ONLY with valid JSON in this exact format (no explanation, no markdown):
+{
+  "name": "short produce name (e.g. Heirloom Roma Tomatoes)",
+  "description": "2-3 sentence natural, warm description of the produce",
+  "category": "one of: Vegetables, Fruits, Herbs, Seeds, Other"
+}
+If you cannot identify produce in the image, respond with:
+{"name": "", "description": "", "category": "Other"}`,
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:${contentType || 'image/jpeg'};base64,${imageBase64}`,
+                },
+              },
+            ],
+          },
+        ],
+        max_tokens: 500,
+      }),
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      return res.status(response.status).json({
+        success: false,
+        error: data.error?.message || 'AI analysis failed'
+      });
+    }
+
+    const rawText = data.choices[0]?.message?.content || '';
+    const cleaned = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+    
+    let result;
+    try {
+      result = JSON.parse(cleaned);
+    } catch (e) {
+      result = { name: '', description: '', category: 'Other' };
+    }
+
+    res.status(200).json({
+      success: true,
+      data: result
+    });
+
+  } catch (error) {
+    console.error('AI image analysis error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to analyze image: ' + error.message
+    });
+  }
+});
+
 module.exports = router;
